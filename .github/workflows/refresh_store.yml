@@ -1,0 +1,47 @@
+name: Refresh college store
+
+on:
+  schedule:
+    # Run weekly on Monday at 06:00 UTC — Scorecard data is refreshed ~monthly.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Force rebuild even if cache is fresh"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build local college store
+        run: python scripts/build_db.py
+
+      - name: Build deadlines CSV
+        run: python scripts/build_deadlines.py
+
+      - name: Run tests
+        run: pytest tests/ -v
+
+      - name: Commit updated data (if changed)
+        if: steps.build.outcome == 'success'
+        run: |
+          git config user.name "college-triage-bot"
+          git config user.email "bot@college-triage.local"
+          git add data/colleges.db data/colleges.parquet data/college_deadlines.csv
+          git diff --cached --quiet || git commit -m "chore: refresh college store and deadlines [bot]"
+          git push

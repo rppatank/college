@@ -1,0 +1,19 @@
+# Credentials — never commit
+.env
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Runtime / user data (regenerated locally, not needed for deploy)
+data/students.db
+data/cache/
+data/raw/
+
+# IDE
+.vscode/
+.idea/
