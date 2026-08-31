@@ -54,9 +54,10 @@ CIP_LABELS = {
     "40": "Physical Sciences",
     "41": "Science Tech",
     "42": "Psychology",
-    "43": "Security & Protective",
+    "43": "Security & Protective (Forensic Science)",
     "44": "Public Administration",
     "45": "Social Sciences",
+    "51": "Nursing",
 }
 
 REGION_NAMES = {

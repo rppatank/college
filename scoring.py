@@ -259,10 +259,11 @@ def classify_tier(
 
 # ---------------------------------------------------------------- major rankings
 
-# Curated US News 2024-2025 rankings for engineering (CIP-14) and a proxy
-# overall National Universities ranking for math (CIP-27) and science
-# (CIP-26, CIP-40), where US News does not publish a specific undergraduate
-# ranking. Loaded once at module load; missing file -> empty dict.
+# Curated US News 2024-2025 rankings for engineering (CIP-14), nursing
+# (CIP-51), and a proxy overall National Universities ranking for math
+# (CIP-27) and science (CIP-26, CIP-40), where US News does not publish
+# a specific undergraduate ranking. Loaded once at module load;
+# missing file -> empty dict.
 _MAJOR_RANK_PATHS = [
     Path(__file__).resolve().parent / "data" / "major_rankings.csv",
     Path(__file__).resolve().parent.parent / "data" / "major_rankings.csv",
@@ -285,6 +286,8 @@ def _load_major_rankings() -> dict:
                 out[uid] = {}
                 if "engineering_rank" in df.columns and pd.notna(r.get("engineering_rank")):
                     out[uid]["14"] = int(r["engineering_rank"])
+                if "nursing_rank" in df.columns and pd.notna(r.get("nursing_rank")):
+                    out[uid]["51"] = int(r["nursing_rank"])
                 if "overall_rank" in df.columns and pd.notna(r.get("overall_rank")):
                     # Proxy for math (27), biology (26), physical sciences (40).
                     for cip in ("27", "26", "40"):
