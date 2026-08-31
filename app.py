@@ -241,7 +241,7 @@ INTERVIEW_QUESTIONS = [
         "text": "What's your SAT total score? (400–1600)",
         "type": "number",
         "min": 400, "max": 1600, "step": 10,
-        "default": 1350,
+        "default": 1450,
         "condition": "test == 'SAT'",
     },
     {
@@ -282,6 +282,7 @@ INTERVIEW_QUESTIONS = [
         "id": "high_school",
         "text": "What high school do you attend? (name and city, e.g. 'North HS, Minneapolis')",
         "type": "text",
+        "default": "Salem HS, Plymouth MI",
     },
 ]
 
