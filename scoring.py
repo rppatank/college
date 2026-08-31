@@ -599,6 +599,10 @@ def triage(
     When the student has selected specific majors (interested_cips), colleges
     that offer NONE of those majors are excluded entirely — major fit is an
     exclusionary filter, not just a scoring factor.
+
+    When the student has set a budget (max_annual_cost), colleges whose
+    effective cost exceeds the budget are excluded entirely — affordability
+    is an exclusionary filter, not just a scoring factor.
     """
     out = df.copy()
 
@@ -615,6 +619,21 @@ def triage(
         out = out[mask].copy()
         if excluded:
             print(f"[triage] excluded {excluded} colleges with no overlap for majors {profile.interested_cips}")
+
+    # --- Exclusionary budget filter ---
+    # A college whose effective cost exceeds the student's budget is excluded
+    # entirely — it is not a "stretch" candidate, it is unaffordable.
+    if profile.max_annual_cost is not None:
+        def _within_budget(row: pd.Series) -> bool:
+            cost = _effective_cost(row, profile)
+            if pd.isna(cost):
+                return True  # unknown cost, don't exclude
+            return cost <= profile.max_annual_cost
+        mask = out.apply(_within_budget, axis=1)
+        excluded = (~mask).sum()
+        out = out[mask].copy()
+        if excluded:
+            print(f"[triage] excluded {excluded} colleges over budget (${profile.max_annual_cost:,.0f}/yr)")
 
     sat = student_sat(profile)
 

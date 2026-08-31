@@ -254,12 +254,6 @@ INTERVIEW_QUESTIONS = [
         "condition": "test == 'ACT'",
     },
     {
-        "id": "in_state_focus",
-        "text": "Are you focusing on in-state colleges, out-of-state, or both?",
-        "type": "choice",
-        "options": ["In-state only", "Out-of-state only", "Both"],
-    },
-    {
         "id": "preferred_states",
         "text": "Which states are you willing to consider for college? (comma-separated abbreviations, e.g. MN, WI, CA — or leave blank for anywhere)",
         "type": "text",
@@ -668,12 +662,10 @@ def main() -> None:
             size_pref=size_pref.lower() if size_pref != "Any" else None,
         )
 
-        # Apply in-state / out-of-state filter
-        focus = answers.get("in_state_focus", "Both")
-        if focus == "In-state only":
-            df = df[df["state"] == home_state]
-        elif focus == "Out-of-state only":
-            df = df[df["state"] != home_state]
+        # Apply state filter from preferred_states
+        preferred_states = profile.preferred_states
+        if preferred_states:
+            df = df[df["state"].isin(preferred_states)]
 
         # Map free-text majors to CIP codes
         cip_map = _majors_to_cip(answers.get("majors", ""))
