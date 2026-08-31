@@ -389,6 +389,10 @@ def criteria_fit(college: pd.Series, profile: StudentProfile) -> float:
     score = 0.0
     total = 0.0
 
+    # Pre-fetch attributes shared by multiple sections.
+    ar = _to_float(college.get("acceptance_rate"))
+    comp = _to_float(college.get("completion_rate"))
+
     # --- cost (in-state vs out-of-state aware) ---
     if profile.max_annual_cost is not None:
         w = profile.w_cost
@@ -405,21 +409,32 @@ def criteria_fit(college: pd.Series, profile: StudentProfile) -> float:
         w = profile.w_majors
         total += w
         overlap = 0.0
+        major_strength = 0.0
         for cip in profile.interested_cips:
             col = _to_float(college.get(f"pcip_{cip}"))
             if not pd.isna(col) and col > 0:
                 overlap += col
-        # Scale major share into [0,1]. Factor 2.0 (not 5.0) so that colleges
-        # with a genuine majority of degrees in the student's fields — e.g. MIT
-        # at 62% CS+Eng — outrank those with a token presence, which previously
-        # all scored a flat 1.0 and made the major filter non-discriminating.
-        score += w * min(1.0, overlap * 2.0)
+                # Major-strength proxy (US News / Peterson's rankings are
+                # paywalled with no API, so we build one from Scorecard):
+                #   - share of degrees in this CIP family (a large share
+                #     means the major is a focus area, not a token program)
+                #   - selectivity (more selective = stronger program)
+                #   - completion rate (outcome proxy for program quality)
+                strength = (
+                    _norm(col, 0.0, 0.5) * 0.50
+                    + _norm(1.0 - (ar if not pd.isna(ar) else 0.5), 0.0, 1.0) * 0.25
+                    + _norm(comp if not pd.isna(comp) else 0.5, 0.0, 1.0) * 0.25
+                )
+                major_strength = max(major_strength, strength)
+        # Combine "does the college offer the major?" (70%) with "how strong
+        # is the college in this major?" (30%) so strong programs get a
+        # meaningful boost over token offerings.
+        combined = min(1.0, overlap * 2.0) * 0.7 + major_strength * 0.3
+        score += w * combined
 
     # --- rankings (proxy: selectivity + completion) ---
     w = profile.w_rankings
     total += w
-    ar = _to_float(college.get("acceptance_rate"))
-    comp = _to_float(college.get("completion_rate"))
     # Selectivity: LOWER acceptance rate = MORE selective = BETTER ranking.
     # Invert so 0% AR -> 1.0 (best) and 100% AR -> 0.0 (worst).
     sel = _norm(1.0 - (ar if not pd.isna(ar) else 0.5), 0.0, 1.0)

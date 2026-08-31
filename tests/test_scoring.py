@@ -223,3 +223,15 @@ def test_major_fit_scaling_discriminates():
     p = StudentProfile(gpa=3.8, max_annual_cost=60000,
                        interested_cips=("11", "14"))
     assert criteria_fit(high, p) > criteria_fit(low, p)
+
+
+def test_major_strength_proxy():
+    # A college with a large, selective program in the student's field should
+    # outrank one with a token presence, all else (cost, etc.) equal.
+    strong = _row(acceptance_rate=0.05, cost_attendance=50000,
+                  pcip_11=0.35, completion_rate=0.90)
+    weak = _row(acceptance_rate=0.05, cost_attendance=50000,
+                pcip_11=0.02, completion_rate=0.90)
+    p = StudentProfile(gpa=3.8, max_annual_cost=60000,
+                       interested_cips=("11",))
+    assert criteria_fit(strong, p) > criteria_fit(weak, p)
