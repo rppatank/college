@@ -107,59 +107,80 @@ def student_sat(profile: StudentProfile) -> float:
 def college_sat_bar(college: pd.Series) -> float:
     """Middle of the college's SAT middle-50 (average of 25th and 75th).
 
-    Uses the best available SAT section. Falls back to SAT_AVG.
+    Returns a total-SAT-scale score (400-1600 for new SAT) comparable to
+    the student's total SAT. Prefers SAT_AVG (already total-scale); falls
+    back to summing section midpoints (VR+MT = 2 sections).
     Returns NaN if no SAT data at all.
     """
+    sat_avg = college.get("sat_avg")
+    sat_avg_f = _to_float(sat_avg)
+    if not pd.isna(sat_avg_f):
+        return sat_avg_f
+
     vr_25 = college.get("sat_vr_25")
     vr_75 = college.get("sat_vr_75")
     mt_25 = college.get("sat_mt_25")
     mt_75 = college.get("sat_mt_75")
     wr_25 = college.get("sat_wr_25")
     wr_75 = college.get("sat_wr_75")
-    sat_avg = college.get("sat_avg")
 
-    pairs = []
-    for lo, hi in ((vr_25, vr_75), (mt_25, mt_75), (wr_25, wr_75)):
-        lo_f = _to_float(lo)
-        hi_f = _to_float(hi)
-        if not pd.isna(lo_f) and not pd.isna(hi_f):
-            pairs.append((lo_f + hi_f) / 2.0)
-    if pairs:
-        return sum(pairs) / len(pairs)
-    sat_avg_f = _to_float(sat_avg)
-    if not pd.isna(sat_avg_f):
-        return sat_avg_f
+    vr_mid = None
+    mt_mid = None
+    wr_mid = None
+    if not pd.isna(_to_float(vr_25)) and not pd.isna(_to_float(vr_75)):
+        vr_mid = (_to_float(vr_25) + _to_float(vr_75)) / 2.0
+    if not pd.isna(_to_float(mt_25)) and not pd.isna(_to_float(mt_75)):
+        mt_mid = (_to_float(mt_25) + _to_float(mt_75)) / 2.0
+    if not pd.isna(_to_float(wr_25)) and not pd.isna(_to_float(wr_75)):
+        wr_mid = (_to_float(wr_25) + _to_float(wr_75)) / 2.0
+
+    if vr_mid is not None and mt_mid is not None:
+        return vr_mid + mt_mid  # total SAT (new SAT, 2 sections)
+    if vr_mid is not None:
+        return vr_mid * 2
+    if mt_mid is not None:
+        return mt_mid * 2
+    if wr_mid is not None:
+        return wr_mid * 3  # old SAT (3 sections)
     return float("nan")
 
 
 def college_sat_percentile(college: pd.Series, q: float) -> float:
     """Estimate a SAT total at the q-th percentile (0-1) from section 25/75.
 
-    Uses the SAT middle-50 as a rough proxy: 25th ~= 25th pct, 75th ~= 75th pct.
-    Linear interpolation between them.
+    Returns a total-SAT-scale score (new SAT, 400-1600). Uses VR+MT when
+    both are available (2 sections); falls back to a single section ×2.
+    Uses the SAT middle-50 as a rough proxy: 25th ~= 25th pct,
+    75th ~= 75th pct. Linear interpolation.
     """
-    vr_25 = college.get("sat_vr_25")
-    vr_75 = college.get("sat_vr_75")
-    mt_25 = college.get("sat_mt_25")
-    mt_75 = college.get("sat_mt_75")
-    wr_25 = college.get("sat_wr_25")
-    wr_75 = college.get("sat_wr_75")
+    vr_25 = _to_float(college.get("sat_vr_25"))
+    vr_75 = _to_float(college.get("sat_vr_75"))
+    mt_25 = _to_float(college.get("sat_mt_25"))
+    mt_75 = _to_float(college.get("sat_mt_75"))
+    wr_25 = _to_float(college.get("sat_wr_25"))
+    wr_75 = _to_float(college.get("sat_wr_75"))
 
-    lo_list, hi_list = [], []
-    for a, b in ((vr_25, vr_75), (mt_25, mt_75), (wr_25, wr_75)):
-        a_f = _to_float(a)
-        b_f = _to_float(b)
-        if not pd.isna(a_f) and not pd.isna(b_f):
-            lo_list.append(a_f)
-            hi_list.append(b_f)
-    if not lo_list:
+    has_vr = not pd.isna(vr_25) and not pd.isna(vr_75)
+    has_mt = not pd.isna(mt_25) and not pd.isna(mt_75)
+    has_wr = not pd.isna(wr_25) and not pd.isna(wr_75)
+
+    if has_vr and has_mt:
+        lo = vr_25 + mt_25
+        hi = vr_75 + mt_75
+    elif has_vr:
+        lo = vr_25 * 2
+        hi = vr_75 * 2
+    elif has_mt:
+        lo = mt_25 * 2
+        hi = mt_75 * 2
+    elif has_wr:
+        lo = wr_25 * 3
+        hi = wr_75 * 3
+    else:
         return float("nan")
 
-    lo = sum(lo_list) / len(lo_list)
-    hi = sum(hi_list) / len(hi_list)
     if hi == lo:
         return lo
-    # Map q (0-1) onto the [25th, 75th] span.
     span = hi - lo
     return lo + span * (q - 0.25) / 0.50
 

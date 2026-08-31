@@ -255,8 +255,9 @@ INTERVIEW_QUESTIONS = [
     },
     {
         "id": "preferred_states",
-        "text": "Which states are you willing to consider for college? (comma-separated abbreviations, e.g. MN, WI, CA — or leave blank for anywhere)",
+        "text": "Which states are you willing to consider for college? (comma-separated abbreviations, e.g. MI, OH, CA — or leave blank for anywhere)",
         "type": "text",
+        "default": "OH, MI, IN, IA, IL, WI, PA",
     },
     {
         "id": "distance",
@@ -288,7 +289,7 @@ INTERVIEW_QUESTIONS = [
 def _default_for(q: dict, answers: dict):
     """Return the default value for a question, using prior answers."""
     if q["id"] == "home_state":
-        return "MN"
+        return "MI"
     return q.get("default")
 
 
@@ -632,6 +633,11 @@ def main() -> None:
 
     elif step == "results":
         answers = st.session_state.answers
+
+        # ---- Go back and edit ----
+        if st.button("← Back to questions", use_container_width=False):
+            st.session_state.interview_step = "questions"
+            st.rerun()
 
         # Build profile from interview answers + sidebar criteria
         residency_states = answers.get("residency", ())

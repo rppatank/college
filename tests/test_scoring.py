@@ -18,9 +18,9 @@ from scoring import (
 def _row(**kw):
     base = dict(
         acceptance_rate=0.5,
-        sat_vr_25=1200, sat_vr_75=1400,
-        sat_mt_25=1200, sat_mt_75=1400,
-        sat_wr_25=1200, sat_wr_75=1400,
+        sat_vr_25=600, sat_vr_75=720,
+        sat_mt_25=600, sat_mt_75=760,
+        sat_wr_25=None, sat_wr_75=None,
         sat_avg=1300,
         cost_attendance=60000,
         region=2, locale=22, control=1, ugds=10000,
@@ -202,7 +202,8 @@ def test_stretch_above_extremely_selective():
 def test_reach_above_moderate_selectivity():
     # Student SAT above 75th, AR between 10% and 25% -> "reach" (not stretch).
     p = StudentProfile(gpa=4.0, sat_total=1600)
-    row = _row(acceptance_rate=0.15, sat_vr_25=1200, sat_vr_75=1400)
+    row = _row(acceptance_rate=0.15, sat_vr_25=600, sat_vr_75=700,
+               sat_mt_25=600, sat_mt_75=700)
     assert classify_tier(p.gpa, student_sat(p), row) == "reach"
 
 
