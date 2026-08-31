@@ -5,6 +5,9 @@
 # Local plan scratch files (may contain credentials)
 plan.txt
 
+# Stale duplicate of the project root
+college/
+
 # Python
 __pycache__/
 *.py[cod]
