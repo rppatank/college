@@ -235,3 +235,15 @@ def test_major_strength_proxy():
     p = StudentProfile(gpa=3.8, max_annual_cost=60000,
                        interested_cips=("11",))
     assert criteria_fit(strong, p) > criteria_fit(weak, p)
+
+
+def test_major_ranking_boost():
+    # A college ranked #1 in the student's field should get a higher fit
+    # score than one ranked #50, all else equal.
+    top = _row(acceptance_rate=0.05, cost_attendance=50000,
+               pcip_14=0.30, completion_rate=0.90, unitid=166683)  # MIT
+    low = _row(acceptance_rate=0.05, cost_attendance=50000,
+               pcip_14=0.30, completion_rate=0.90, unitid=153658)  # Iowa
+    p = StudentProfile(gpa=3.8, max_annual_cost=60000,
+                       interested_cips=("14",))
+    assert criteria_fit(top, p) > criteria_fit(low, p)

@@ -18,6 +18,7 @@ Rules:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 import pandas as pd
@@ -256,6 +257,53 @@ def classify_tier(
     return tier
 
 
+# ---------------------------------------------------------------- major rankings
+
+# Curated US News 2024-2025 rankings for engineering (CIP-14) and a proxy
+# overall National Universities ranking for math (CIP-27) and science
+# (CIP-26, CIP-40), where US News does not publish a specific undergraduate
+# ranking. Loaded once at module load; missing file -> empty dict.
+_MAJOR_RANK_PATHS = [
+    Path(__file__).resolve().parent / "data" / "major_rankings.csv",
+    Path(__file__).resolve().parent.parent / "data" / "major_rankings.csv",
+]
+
+
+def _load_major_rankings() -> dict:
+    """Return {unitid: {cip_family: rank}} from data/major_rankings.csv."""
+    for p in _MAJOR_RANK_PATHS:
+        if p.exists():
+            try:
+                df = pd.read_csv(p)
+            except Exception:
+                continue
+            if "unitid" not in df.columns:
+                continue
+            out = {}
+            for _, r in df.iterrows():
+                uid = str(int(r["unitid"]))
+                out[uid] = {}
+                if "engineering_rank" in df.columns and pd.notna(r.get("engineering_rank")):
+                    out[uid]["14"] = int(r["engineering_rank"])
+                if "overall_rank" in df.columns and pd.notna(r.get("overall_rank")):
+                    # Proxy for math (27), biology (26), physical sciences (40).
+                    for cip in ("27", "26", "40"):
+                        out[uid][cip] = int(r["overall_rank"])
+            return out
+    return {}
+
+
+_MAJOR_RANKINGS = _load_major_rankings()
+
+
+def _major_rank_score(rank: Optional[int]) -> float:
+    """Convert a 1-based rank to a 0-1 score (lower rank = better)."""
+    if rank is None or rank <= 0:
+        return 0.0
+    # Rank 1 -> 1.0, rank 63 -> ~0.5, rank 200 -> ~0.1
+    return max(0.0, 1.0 - (rank - 1) / 137.0)
+
+
 # ---------------------------------------------------------------- fit score
 
 def _effective_cost(college: pd.Series, profile: StudentProfile) -> float:
@@ -410,6 +458,7 @@ def criteria_fit(college: pd.Series, profile: StudentProfile) -> float:
         total += w
         overlap = 0.0
         major_strength = 0.0
+        rank_score = 0.0
         for cip in profile.interested_cips:
             col = _to_float(college.get(f"pcip_{cip}"))
             if not pd.isna(col) and col > 0:
@@ -426,10 +475,25 @@ def criteria_fit(college: pd.Series, profile: StudentProfile) -> float:
                     + _norm(comp if not pd.isna(comp) else 0.5, 0.0, 1.0) * 0.25
                 )
                 major_strength = max(major_strength, strength)
-        # Combine "does the college offer the major?" (70%) with "how strong
-        # is the college in this major?" (30%) so strong programs get a
-        # meaningful boost over token offerings.
-        combined = min(1.0, overlap * 2.0) * 0.7 + major_strength * 0.3
+            # Curated US News ranking for this CIP family (engineering has a
+            # specific undergraduate ranking; math / science use the overall
+            # National Universities ranking as a proxy).
+            uid_val = college.get("unitid", "")
+            if uid_val is not None and not pd.isna(uid_val) and str(uid_val).strip():
+                uid = str(int(float(uid_val)))
+                if uid in _MAJOR_RANKINGS:
+                    r = _MAJOR_RANKINGS[uid].get(cip)
+                    if r:
+                        rank_score = max(rank_score, _major_rank_score(r))
+        # Combine three signals for the major fit:
+        #   60% — does the college offer the major? (overlap)
+        #   25% — how strong is it in this major? (proxy from Scorecard)
+        #   15% — curated US News / proxy ranking
+        combined = (
+            min(1.0, overlap * 2.0) * 0.60
+            + major_strength * 0.25
+            + rank_score * 0.15
+        )
         score += w * combined
 
     # --- rankings (proxy: selectivity + completion) ---
