@@ -185,3 +185,41 @@ def test_criteria_fit_in_state_cheaper():
     fit_in = criteria_fit(row, p_in)
     fit_out = criteria_fit(row, p_out)
     assert fit_in > fit_out
+
+
+# ---------------------------------------------------------------- new behaviour
+
+
+def test_stretch_above_extremely_selective():
+    # Student SAT is above the 75th percentile, but the college's acceptance
+    # rate is <= 10% — a dream school for anyone. Should classify as "stretch"
+    # (not "reach"), so high-achieving students see aspirational targets.
+    p = StudentProfile(gpa=4.0, sat_total=1600)
+    row = _row(acceptance_rate=0.05, sat_vr_25=1200, sat_vr_75=1400)
+    assert classify_tier(p.gpa, student_sat(p), row) == "stretch"
+
+
+def test_reach_above_moderate_selectivity():
+    # Student SAT above 75th, AR between 10% and 25% -> "reach" (not stretch).
+    p = StudentProfile(gpa=4.0, sat_total=1600)
+    row = _row(acceptance_rate=0.15, sat_vr_25=1200, sat_vr_75=1400)
+    assert classify_tier(p.gpa, student_sat(p), row) == "reach"
+
+
+def test_criteria_fit_selectivity_inverted():
+    # More selective (lower AR) college should score HIGHER on the rankings
+    # component than a less selective one, all else equal.
+    selective = _row(acceptance_rate=0.05, cost_attendance=50000)
+    less_selective = _row(acceptance_rate=0.50, cost_attendance=50000)
+    p = StudentProfile(gpa=3.8, max_annual_cost=60000)
+    assert criteria_fit(selective, p) > criteria_fit(less_selective, p)
+
+
+def test_major_fit_scaling_discriminates():
+    # The major-fit scaling (factor 2.0, not 5.0) should differentiate between
+    # colleges with different major shares instead of giving all a flat 1.0.
+    high = _row(acceptance_rate=0.5, pcip_11=0.5, pcip_14=0.5)
+    low = _row(acceptance_rate=0.5, pcip_11=0.05, pcip_14=0.0)
+    p = StudentProfile(gpa=3.8, max_annual_cost=60000,
+                       interested_cips=("11", "14"))
+    assert criteria_fit(high, p) > criteria_fit(low, p)

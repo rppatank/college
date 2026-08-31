@@ -224,6 +224,11 @@ def classify_tier(
             tier = "safety"
         elif ar >= 0.25:
             tier = "safety" if ar >= 0.35 else "match"
+        elif ar <= 0.10:
+            # Extremely selective (<=10% AR): a dream school for any student,
+            # even one above the 75th percentile. Classify as stretch so the
+            # student sees these as aspirational targets, not likely admits.
+            tier = "stretch"
         else:
             tier = "reach"
     elif sat_pos == "middle":
@@ -404,14 +409,20 @@ def criteria_fit(college: pd.Series, profile: StudentProfile) -> float:
             col = _to_float(college.get(f"pcip_{cip}"))
             if not pd.isna(col) and col > 0:
                 overlap += col
-        score += w * min(1.0, overlap * 5.0)  # scale major share into [0,1]
+        # Scale major share into [0,1]. Factor 2.0 (not 5.0) so that colleges
+        # with a genuine majority of degrees in the student's fields — e.g. MIT
+        # at 62% CS+Eng — outrank those with a token presence, which previously
+        # all scored a flat 1.0 and made the major filter non-discriminating.
+        score += w * min(1.0, overlap * 2.0)
 
     # --- rankings (proxy: selectivity + completion) ---
     w = profile.w_rankings
     total += w
     ar = _to_float(college.get("acceptance_rate"))
     comp = _to_float(college.get("completion_rate"))
-    sel = _norm(ar if not pd.isna(ar) else 0.5, 0.0, 1.0)
+    # Selectivity: LOWER acceptance rate = MORE selective = BETTER ranking.
+    # Invert so 0% AR -> 1.0 (best) and 100% AR -> 0.0 (worst).
+    sel = _norm(1.0 - (ar if not pd.isna(ar) else 0.5), 0.0, 1.0)
     comp_n = _norm(comp if not pd.isna(comp) else 0.5, 0.0, 1.0)
     score += w * 0.5 * (sel + comp_n)
 
@@ -502,8 +513,26 @@ def triage(
     """Classify every row in df and return it with tier + fit_score columns.
 
     The returned DataFrame has extra columns: 'tier', 'fit_score', 'sat_bar'.
+
+    When the student has selected specific majors (interested_cips), colleges
+    that offer NONE of those majors are excluded entirely — major fit is an
+    exclusionary filter, not just a scoring factor.
     """
     out = df.copy()
+
+    # --- Exclusionary major filter ---
+    if profile.interested_cips:
+        def _has_major(row: pd.Series) -> bool:
+            for cip in profile.interested_cips:
+                col = _to_float(row.get(f"pcip_{cip}"))
+                if not pd.isna(col) and col > 0:
+                    return True
+            return False
+        mask = out.apply(_has_major, axis=1)
+        excluded = (~mask).sum()
+        out = out[mask].copy()
+        if excluded:
+            print(f"[triage] excluded {excluded} colleges with no overlap for majors {profile.interested_cips}")
 
     sat = student_sat(profile)
 

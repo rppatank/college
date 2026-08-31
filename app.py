@@ -25,61 +25,38 @@ ROOT = Path(__file__).resolve().parent
 DB_PATH = ROOT / "data" / "colleges.db"
 
 # CIP-2 family labels for the majors picker.
+# Labels MUST match the actual Scorecard pcip_XX columns (standard CIP-2 codes).
 CIP_LABELS = {
-    "01": "Agricultural",
-    "02": "Natural Resources",
+    "01": "Agriculture & Related",
     "03": "Architecture",
     "04": "Communications",
     "05": "Education",
-    "06": "Engineering",
-    "07": "English",
-    "08": "Family/Consumer Sciences",
     "09": "Health Professions",
     "10": "Liberal Arts",
     "11": "Computer Science",
     "12": "Law",
-    "13": "Library Science",
-    "14": "Military",
-    "15": "Philosophy/Religion",
-    "16": "Theology",
-    "17": "Physical Sciences",
-    "18": "Psychology",
-    "19": "Security/Protective",
-    "20": "Construction",
-    "21": "Mechanic/Repair",
-    "22": "Precision Production",
-    "23": "Transportation",
-    "24": "Visual/Performing Arts",
-    "25": "Business/Marketing",
-    "26": "History",
-    "27": "Interdisciplinary",
-    "28": "Mathematics",
-    "29": "Military Technologies",
+    "13": "Education (other)",
+    "14": "Engineering",
+    "15": "Engineering Tech",
+    "16": "Foreign Languages",
+    "19": "Family/Consumer Sci",
+    "22": "Military Tech",
+    "23": "English",
+    "24": "Liberal Arts (other)",
+    "25": "Library Science",
+    "26": "Biological Sciences",
+    "27": "Mathematics",
+    "29": "American Indian Studies",
     "30": "Multi/Interdisciplinary",
-    "31": " Parks/Rec/Leisure",
-    "32": "Basic Skills",
-    "33": "Liberal Arts (Gen)",
-    "34": "Homeland Security",
-    "35": "Communications Tech",
-    "36": "Data Science",
-    "37": "Other",
-    "38": "History (alt)",
-    "39": "Other (alt)",
-    "40": "Physical Sciences (alt)",
+    "31": "Parks, Rec, Leisure",
+    "38": "Philosophy",
+    "39": "Theology & Religion",
+    "40": "Physical Sciences",
     "41": "Science Tech",
-    "42": "Psychology (alt)",
-    "43": "Security (alt)",
-    "44": "Public Admin",
+    "42": "Psychology",
+    "43": "Security & Protective",
+    "44": "Public Administration",
     "45": "Social Sciences",
-    "46": "Construction (alt)",
-    "47": "Mechanic (alt)",
-    "48": "Precision (alt)",
-    "49": "Transportation (alt)",
-    "50": "Visual/Performing (alt)",
-    "51": "Business (alt)",
-    "52": "Education (alt)",
-    "53": "Health (alt)",
-    "54": "Other (alt)",
 }
 
 REGION_NAMES = {
@@ -719,16 +696,21 @@ def main() -> None:
         )
 
         # ---- Export (Phase 3) ----
-        export_df = final[[
-            "name", "tier", "acceptance_rate", "fit_score", "state",
-            "cost_attendance", "rd_deadline", "early_deadline", "ea_ed_type",
-        ]].copy()
+        # Compute effective cost and aid probability on the FULL row set first,
+        # so the helpers can see control / tuition columns. Then select the
+        # columns that go into the downloadable CSV.
+        export_df = final.copy()
         export_df["effective_cost"] = export_df.apply(
             lambda r: _effective_cost(r, profile), axis=1
         )
         export_df["aid_prob"] = export_df.apply(
             lambda r: aid_estimate(r, profile)["prob"], axis=1
         )
+        export_df = export_df[[
+            "name", "tier", "acceptance_rate", "fit_score", "state",
+            "cost_attendance", "rd_deadline", "early_deadline", "ea_ed_type",
+            "effective_cost", "aid_prob",
+        ]].copy()
         export_df = export_df.rename(columns={
             "name": "College", "tier": "Tier", "acceptance_rate": "Acceptance Rate",
             "fit_score": "Fit Score", "state": "State", "cost_attendance": "Sticker Cost",

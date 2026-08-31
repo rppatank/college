@@ -113,13 +113,8 @@ _GAPS = [
         "What majors or fields of study are you interested in? Be specific.",
         "Majors field is too vague",
     ),
-    (
-        "residency",
-        lambda a: not a.get("residency"),
-        "Do you have residency in any other states -- e.g. where your parents or "
-        "grandparents live? This affects in-state tuition at public universities.",
-        "No additional residency states given",
-    ),
+    # Residency is OPTIONAL — never flag a blank/empty answer as a gap.
+    # The student may have no additional residency states, and that's valid.
 ]
 
 
